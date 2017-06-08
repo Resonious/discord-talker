@@ -2,6 +2,7 @@ package net.resonious.talker
 
 import marytts.LocalMaryInterface
 import net.dv8tion.jda.client.events.call.voice.CallVoiceJoinEvent
+import net.dv8tion.jda.core.audio.AudioReceiveHandler
 import net.dv8tion.jda.core.entities.Guild
 import net.dv8tion.jda.core.entities.Message
 import net.dv8tion.jda.core.entities.VoiceChannel
@@ -24,33 +25,27 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
         val manager = audioManagers.getOrElse(guild.idLong, { guild.audioManager })
 
         // Talker really only works with one voice channel lol
-        if (manager.connectedChannel?.id != channel.id)
+        if (manager.connectedChannel?.id != channel.id) {
+            // TODO set sending handler RIGHT HERE
             manager.openAudioConnection(channel)
+        }
     }
 
 
     fun leaveVoiceChannel(guild: Guild) {
         val manager = audioManagers[guild.idLong] ?: return
         manager.closeAudioConnection()
+        audioManagers.remove(guild.idLong)
     }
 
 
-    // TODO anyone typing into #voice-replies while in voice should trip
-    // the joinVoiceChannel -- this is just for stupid I guess
     override fun onGuildMessageReceived(event: GuildMessageReceivedEvent?) {
         if (event == null) return
-        if (!messageMentionsMe(event.message)) return
+        if (event.author.isBot) return
+        if (!event.channel.name.contains("voice-replies")) return // TODO maybe make voice-replies name configurable
+        if (event.member.voiceState?.channel == null) return
 
-        val content = event.message.content
-        if (content.contains("join")) {
-            try {
-                joinVoiceChannel(event.guild, event.member.voiceState.channel)
-            }
-            catch (e: Exception) {
-                println(e)
-                // Don't really care right now if it doesn't work
-            }
-        }
+        joinVoiceChannel(event.guild, event.member.voiceState.channel)
     }
 
 
@@ -59,11 +54,13 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
         val channel = event.channelLeft ?: return
         val manager = audioManagers[channel.guild.idLong] ?: return
 
-        // TODO this does not work and should depend on how many people are left in there
-        leaveVoiceChannel(event.guild)
+        val isMyChannel = channel.idLong == manager.connectedChannel.idLong
+
+        if (isMyChannel && channel.members.size == 1)
+            leaveVoiceChannel(event.guild)
     }
 
 
     private fun messageMentionsMe(message: Message) =
-        message.mentionedUsers.any { u -> u.id ==  message.jda.selfUser.id }
+        message.mentionedUsers.any { u -> u.id == message.jda.selfUser.id }
 }
