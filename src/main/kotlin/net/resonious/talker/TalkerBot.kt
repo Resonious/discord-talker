@@ -17,9 +17,7 @@ import net.dv8tion.jda.core.managers.AudioManager
  * Created by metre on 6/7/2017.
  */
 class TalkerBot(val dataSource: Data) : ListenerAdapter() {
-    val mary = LocalMaryInterface()
     var audioManagers = HashMap<Long, AudioManager>()
-
 
     fun joinVoiceChannel(guild: Guild, channel: VoiceChannel) {
         val manager = audioManagers.getOrElse(guild.idLong, { guild.audioManager })
