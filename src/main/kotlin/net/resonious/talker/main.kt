@@ -5,14 +5,27 @@ import marytts.config.MaryConfig
 import marytts.util.data.audio.MaryAudioUtils
 
 fun main(args: Array<String>) {
-    println("Ahoy ${args.size}")
-
-    // TODO shit!!! how can we make this load from the jar?
-    println("Uhhh " + MaryConfig.countConfigs())
+    println("Uhhh " + MaryConfig.countConfigs() + " configs exist\n")
     val mary = LocalMaryInterface()
-    val audio = mary.generateAudio("one two three what the fuck?")
+
+    var voices = mary.availableVoices
+    voices.forEach { v -> println("Voice: $v") }
+    mary.voice = "cmu-rms-hsmm"
+
+    val audio = mary.generateAudio("Here's the voice. I hope this works any amount at all. How do I sound?")
+
+    println(
+        "\nSome info:\n"+
+        "Channels: ${audio.format.channels}\n"+
+        "Encoding: ${audio.format.encoding.toString()}\n"+
+        "Big Endian: ${audio.format.isBigEndian}\n"+
+        "Sample rate: ${audio.format.sampleRate}"+
+        "Sample bits: ${audio.format.sampleSizeInBits}"
+    )
+
     val samples = MaryAudioUtils.getSamplesAsDoubleArray(audio)
     MaryAudioUtils.writeWavFile(samples, "out.wav", audio.format)
 
-    println("Wrote to out.wav")
+
+    println("\nWrote to out.wav")
 }
