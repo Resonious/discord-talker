@@ -5,12 +5,16 @@ import marytts.config.MaryConfig
 import marytts.util.data.audio.MaryAudioUtils
 
 fun main(args: Array<String>) {
+    val dataSource = Data("./talker/")
+    val prof = dataSource.getProfile("123")
+    println("CHECK IT!!! ${prof.userId}")
+
     println("Uhhh " + MaryConfig.countConfigs() + " configs exist\n")
     val mary = LocalMaryInterface()
 
     var voices = mary.availableVoices
     voices.forEach { v -> println("Voice: $v") }
-    mary.voice = "cmu-rms-hsmm"
+    mary.voice = "cmu-bdl-hsmm"
 
     val audio = mary.generateAudio("Here's the voice. I hope this works any amount at all. How do I sound?")
 
@@ -19,7 +23,7 @@ fun main(args: Array<String>) {
         "Channels: ${audio.format.channels}\n"+
         "Encoding: ${audio.format.encoding.toString()}\n"+
         "Big Endian: ${audio.format.isBigEndian}\n"+
-        "Sample rate: ${audio.format.sampleRate}"+
+        "Sample rate: ${audio.format.sampleRate}\n"+
         "Sample bits: ${audio.format.sampleSizeInBits}"
     )
 

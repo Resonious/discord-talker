@@ -106,5 +106,7 @@ Temporary Items
 .apdisk
 
 
+log/
 lib/
 out.wav
+talker/
