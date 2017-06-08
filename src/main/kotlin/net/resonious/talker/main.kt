@@ -3,11 +3,22 @@ package net.resonious.talker
 import marytts.LocalMaryInterface
 import marytts.config.MaryConfig
 import marytts.util.data.audio.MaryAudioUtils
+import net.dv8tion.jda.core.AccountType
+import net.dv8tion.jda.core.JDABuilder
 
 fun main(args: Array<String>) {
-    val dataSource = Data("./talker/")
-    val prof = dataSource.getProfile("123")
-    println("CHECK IT!!! ${prof.userId}")
+    val data = Data("./talker-data/")
+    val bot = TalkerBot(data)
+    val jda = JDABuilder(AccountType.BOT)
+            .setToken(data.getToken())
+            .addEventListener(bot)
+            .buildBlocking()
+
+    return // Keeping the stuff underneath for reference
+
+    // val dataSource = Data("./talker/")
+    // val prof = dataSource.getProfile("123")
+    // println("CHECK IT!!! ${prof.userId}")
 
     println("Uhhh " + MaryConfig.countConfigs() + " configs exist\n")
     val mary = LocalMaryInterface()
