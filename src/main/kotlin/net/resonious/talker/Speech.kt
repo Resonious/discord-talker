@@ -3,14 +3,16 @@ package net.resonious.talker
 import marytts.LocalMaryInterface
 import net.dv8tion.jda.core.audio.AudioSendHandler
 import net.dv8tion.jda.core.entities.Message
+import javax.sound.sampled.AudioInputStream
 
 class Speech(
-        mary: LocalMaryInterface,
+        val mary: LocalMaryInterface,
         val message: Message,
+        val voice:   Data.Voice,
         val onDone: (Speech) -> Unit
 ) : AudioSendHandler {
     val text = message.strippedContent
-    var inputStream = mary.generateAudio(text)
+    var inputStream = generateAudio()
     var done = false
     var ranCallback = false
 
@@ -44,6 +46,15 @@ class Speech(
             throw e
         }
     }
+
+
+    fun generateAudio(): AudioInputStream {
+        mary.voice        = voice.maryVoice
+        mary.audioEffects = voice.maryEffects
+
+        return mary.generateAudio(text)
+    }
+
 
     override fun provide20MsAudio(): ByteArray {
         val result = ByteArray(3840)
