@@ -92,23 +92,25 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
         // When a reaction is added to one of our messages, we set the user's voice according to the emote
         event.channel.getMessageById(event.messageIdLong).queue { message ->
-            val wasSentByMe = message.author.idLong == event.jda.selfUser.idLong
-            if (wasSentByMe) {
+            val theMessageWasMine = message.author.idLong == event.jda.selfUser.idLong
+            if (theMessageWasMine) {
                 val profile = dataSource.getProfile(user.id)
                 val voice = dataSource.getVoiceByEmoji(reaction.emote.name)
 
                 if (voice == null)
                     message.channel.sendMessage(
-                            "${user.asMention} Oops, failed to find the voice for that emote, sorry"
+                            "${user.asMention} Oops, failed to find the voice for ${reaction.emote.name}, sorry"
                     ).queue()
 
                 else {
                     profile.voiceName = voice.name
                     dataSource.saveProfile(profile)
                     message.channel.sendMessage(
-                            "${user.asMention} Voice set to ${reaction.emote.name}!"
+                            "${user.asMention} Voice set to ${reaction.emote.name} (${voice.name})!"
                     ).queue()
                 }
+
+                reaction.removeReaction(user).queue()
             }
         }
     }
