@@ -5,6 +5,8 @@ import net.dv8tion.jda.core.audio.AudioSendHandler
 import net.dv8tion.jda.core.entities.Message
 import javax.sound.sampled.AudioInputStream
 
+const val SEGMENT_SIZE = 3840
+
 class Speech(
         val mary: LocalMaryInterface,
         val message: Message,
@@ -15,28 +17,29 @@ class Speech(
     var inputStream = generateAudio()
     var done = false
     var ranCallback = false
+    var nextSegment = ByteArray(SEGMENT_SIZE)
+    val myFormat    get() = inputStream.format
+    val inputFormat get() = AudioSendHandler.INPUT_FORMAT
+    val inputSamplesPerMySample = (inputFormat.sampleRate / myFormat.sampleRate).toInt()
 
     init {
         println("Received message: \"$text\"")
 
         // Do some quick validations here
-        val myFormat = inputStream.format
-        val expectedFormat = AudioSendHandler.INPUT_FORMAT
-
         try {
-            if (myFormat.sampleRate != expectedFormat.sampleRate)
+            if (myFormat.sampleRate > inputFormat.sampleRate)
                 throw RuntimeException(
-                    "Sample rates don't match (generated ${myFormat.sampleRate}," +
-                    "expected ${expectedFormat.sampleRate})"
+                    "Sample rates aren't right (generated ${myFormat.sampleRate}," +
+                    "expected < ${inputFormat.sampleRate})"
                 )
 
-            if (myFormat.frameSize * 2 != expectedFormat.frameSize)
+            if (myFormat.frameSize * 2 != inputFormat.frameSize)
                 throw RuntimeException(
-                    "Frame sizes isn't right (generated ${myFormat.frameSize}, " +
-                    "expected ${expectedFormat.frameSize / 2} * 2)"
+                    "Frame size isn't right (generated ${myFormat.frameSize}, " +
+                    "expected ${inputFormat.frameSize / 2} * 2)"
                 )
 
-            if (myFormat.isBigEndian == expectedFormat.isBigEndian)
+            if (myFormat.isBigEndian == inputFormat.isBigEndian)
                 throw RuntimeException(
                     "Expected endianness to be swapped. This is an easy fix."
                 )
@@ -52,34 +55,48 @@ class Speech(
         mary.voice        = voice.maryVoice
         mary.audioEffects = voice.maryEffects
 
-        return mary.generateAudio(text)
+        var inputText = text
+        if (!inputText.endsWith('.')) inputText += '.'
+        // TODO do more processing, maybe generate ssml doc
+
+        return mary.generateAudio(inputText)
     }
 
 
-    override fun provide20MsAudio(): ByteArray {
-        val result = ByteArray(3840)
-        val sample = ByteArray(2)
+    override fun canProvide(): Boolean {
+        if (!done) return advanceSegment()
+        else if (!ranCallback) { ranCallback = true; onDone(this); return false }
+        else return false
+    }
 
-        for (i in result.indices step 4) {
+
+    fun advanceSegment(): Boolean {
+        if (done) return false
+
+        val sample = ByteArray(2)
+        nextSegment.fill(0)
+
+        // The 4 here I think is (2 bytes/sample) * (2 mono/stereo)
+        for (i in nextSegment.indices step 4 * inputSamplesPerMySample) {
             val amountRead = inputStream.read(sample)
             if (amountRead < 2) {
                 done = true
-                break
+                return i > 0
             }
 
-            result[i]   = sample[1]
-            result[i+1] = sample[0]
-
-            result[i+2] = sample[1]
-            result[i+3] = sample[0]
+            for (j in 0..(inputSamplesPerMySample-1)) {
+                nextSegment[i+j]   = sample[1]
+                nextSegment[i+j+1] = sample[0]
+                nextSegment[i+j+2] = sample[1]
+                nextSegment[i+j+3] = sample[0]
+            }
         }
 
-        return result
+        return true
     }
 
-    override fun canProvide(): Boolean {
-        if (!done) return true
-        else if (!ranCallback) { ranCallback = true; onDone(this); return false }
-        else return false
+
+    override fun provide20MsAudio(): ByteArray? {
+        return nextSegment
     }
 }
