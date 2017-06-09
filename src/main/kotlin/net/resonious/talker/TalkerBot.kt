@@ -28,6 +28,13 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
     }
 
 
+    fun endCurrentSpeech(guild: Guild) {
+        val manager = guild.audioManager.sendingHandler
+        if (manager is Speech)
+            manager.done = true
+    }
+
+
     fun playNextSpeech() {
         val speech       = speeches.firstOrNull() ?: return
         val guild        = speech.message.guild
@@ -39,11 +46,10 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
 
     fun speechDone(speech: Speech) {
+        println("The speech \"${speech.text}\" has ended")
+
         speeches.remove(speech)
-        if (speeches.isEmpty())
-            speech.message.guild.audioManager.sendingHandler = null
-        else
-            playNextSpeech()
+        playNextSpeech()
     }
 
 
@@ -62,26 +68,27 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
     override fun onGuildVoiceLeave(event: GuildVoiceLeaveEvent?) {
         if (event == null) return
+        if (event.member.user.idLong == event.jda.selfUser.idLong) return
         val channel = event.channelLeft ?: return
-        val manager = event.guild.audioManager
+        val manager = event.guild.audioManager ?: return
 
-        val isMyChannel = channel.idLong == manager.connectedChannel.idLong
+        val isMyChannel = channel.idLong == manager.connectedChannel?.idLong
 
         if (isMyChannel && channel.members.size == 1) {
             // If we're the only one left, leave!
             leaveVoiceChannel(event.guild)
         }
         else {
+            val current = manager.sendingHandler
             // If the person who left was talking, we want to remove all their speeches
             // from the queue.
             speeches.removeAll {
-                if (it == manager.sendingHandler)
-                    manager.sendingHandler = null
+                if (it == current) it.done = true
                 it.message.author.idLong == event.member.user.idLong
             }
 
             // In case we interrupted the current speech, start playing the next one.
-            if (manager.sendingHandler == null && speeches.size > 0)
+            if (current is Speech && current.done && speeches.size > 0)
                 playNextSpeech()
         }
     }

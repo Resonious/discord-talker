@@ -3,8 +3,6 @@ package net.resonious.talker
 import marytts.LocalMaryInterface
 import net.dv8tion.jda.core.audio.AudioSendHandler
 import net.dv8tion.jda.core.entities.Message
-import net.dv8tion.jda.core.managers.AudioManager
-import org.apache.commons.lang.mutable.MutableByte
 
 class Speech(
         mary: LocalMaryInterface,
@@ -55,7 +53,6 @@ class Speech(
             val amountRead = inputStream.read(sample)
             if (amountRead < 2) {
                 done = true
-                onDone(this)
                 break
             }
 
@@ -71,7 +68,7 @@ class Speech(
 
     override fun canProvide(): Boolean {
         if (!done) return true
-        else if (!ranCallback) { onDone(this); ranCallback = true; return false }
+        else if (!ranCallback) { ranCallback = true; onDone(this); return false }
         else return false
     }
 }
