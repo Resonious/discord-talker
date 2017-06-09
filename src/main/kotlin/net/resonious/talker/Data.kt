@@ -1,12 +1,15 @@
 package net.resonious.talker
 import com.fasterxml.jackson.module.kotlin.*
+import java.io.File
 import java.io.FileNotFoundException
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.stream.Stream
 
 class Data(val directory: String) {
     data class Voice(val name: String, val maryVoice: String, val maryEffects: String, val emoji: String)
-    data class Profile(val userId: String, val voiceName: String)
+    data class Profile(val userId: String, var voiceName: String)
 
 
     class NoTokenException(
@@ -62,9 +65,25 @@ class Data(val directory: String) {
     })
 
 
+    fun allVoices(): List<Voice> {
+        return File(directory)
+                .listFiles({ file -> file.name.contains("voice-") })
+                .map { mapper.readValue<Voice>(it) }
+    }
+
+
+    fun getVoiceByEmoji(emoji: String): Voice? {
+        for (voice in allVoices())
+            if (voice.emoji == emoji)
+                return voice
+        return null
+    }
+
+
     fun saveProfile(profile: Profile) {
         val path = Paths.get(directory, "profile-${profile.userId}.json")
         val file = path.toFile()
         mapper.writeValue(file, profile)
+        profileCache.put(profile.userId, profile)
     }
 }

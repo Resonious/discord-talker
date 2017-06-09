@@ -1,10 +1,13 @@
 package net.resonious.talker
 
 import marytts.LocalMaryInterface
+import net.dv8tion.jda.client.managers.EmoteManager
 import net.dv8tion.jda.core.entities.Guild
+import net.dv8tion.jda.core.entities.Message
 import net.dv8tion.jda.core.entities.VoiceChannel
 import net.dv8tion.jda.core.events.guild.voice.GuildVoiceLeaveEvent
 import net.dv8tion.jda.core.events.message.guild.GuildMessageReceivedEvent
+import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEvent
 import net.dv8tion.jda.core.hooks.ListenerAdapter
 
 class TalkerBot(val dataSource: Data) : ListenerAdapter() {
@@ -53,8 +56,69 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
     }
 
 
+    fun listVoices(message: Message) {
+        val guild = message.guild
+        message.textChannel.sendMessage("Click a reaction to select a voice").queue { sent ->
+            var foundAny = false
+
+            dataSource.allVoices().forEach { voice ->
+                foundAny = true
+
+                if (voice.emoji.toUpperCase() != voice.emoji.toLowerCase()) {
+                    val candidates = guild.getEmotesByName(voice.emoji, true)
+                    if (candidates.isEmpty())
+                        println("Failed to find emote for \"${voice.emoji}\" for voice \"${voice.name}\"")
+                    else
+                        sent.addReaction(candidates.first()).queue()
+                }
+                else
+                    sent.addReaction(voice.emoji).queue()
+            }
+
+            if (!foundAny) {
+                message.textChannel.sendMessage("Oops nevermind there aren't any options. Sorry!").queue()
+            }
+        }
+    }
+
+
+    override fun onGuildMessageReactionAdd(event: GuildMessageReactionAddEvent?) {
+        if (event == null) return
+        val user     = event.member.user
+        val reaction = event.reaction
+        if (user.isBot) return
+
+        println("Reaction \"${reaction.emote.name}\" added to some message")
+
+        // When a reaction is added to one of our messages, we set the user's voice according to the emote
+        event.channel.getMessageById(event.messageIdLong).queue { message ->
+            val wasSentByMe = message.author.idLong == event.jda.selfUser.idLong
+            if (wasSentByMe) {
+                val profile = dataSource.getProfile(user.id)
+                val voice = dataSource.getVoiceByEmoji(reaction.emote.name)
+
+                if (voice == null)
+                    message.channel.sendMessage(
+                            "${user.asMention} Oops, failed to find the voice for that emote, sorry"
+                    ).queue()
+
+                else {
+                    profile.voiceName = voice.name
+                    dataSource.saveProfile(profile)
+                    message.channel.sendMessage(
+                            "${user.asMention} Voice set to ${reaction.emote.name}!"
+                    ).queue()
+                }
+            }
+        }
+    }
+
+
     override fun onGuildMessageReceived(event: GuildMessageReceivedEvent?) {
         if (event == null) return
+
+        if (event.message.strippedContent.contains("!voices")) return listVoices(event.message)
+
         if (event.member.voiceState?.channel == null) return
         if (event.author.isBot) return
         if (!event.channel.name.contains("voice-replies")) return // TODO maybe make voice-replies name configurable
