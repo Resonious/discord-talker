@@ -2,7 +2,6 @@ package net.resonious.talker
 
 import marytts.LocalMaryInterface
 import net.dv8tion.jda.core.entities.Guild
-import net.dv8tion.jda.core.entities.TextChannel
 import net.dv8tion.jda.core.entities.VoiceChannel
 import net.dv8tion.jda.core.events.guild.voice.GuildVoiceLeaveEvent
 import net.dv8tion.jda.core.events.message.guild.GuildMessageReceivedEvent
@@ -63,8 +62,7 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
         val user    = event.member.user
         val profile = dataSource.getProfile(user.id)
         val voice   = dataSource.getVoice(profile.voiceName) ?: dataSource.getVoice("default")
-
-        if (voice == null) throw RuntimeException("No default voice")
+        ?: throw RuntimeException("No default voice")
 
         speeches.add(Speech(mary, event.message, voice, this::speechDone))
 
