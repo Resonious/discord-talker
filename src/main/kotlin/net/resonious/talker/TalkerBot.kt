@@ -10,8 +10,11 @@ import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEv
 import net.dv8tion.jda.core.hooks.ListenerAdapter
 
 class TalkerBot(val dataSource: Data) : ListenerAdapter() {
-    val speeches = mutableListOf<Speech>()
+    val speechesByGuild = mutableMapOf<Long, MutableList<Speech>>()
     val mary     = LocalMaryInterface()
+
+
+    fun speechesFor(guild: Guild) = speechesByGuild.getOrPut(guild.idLong, { mutableListOf<Speech>() })
 
 
     fun joinVoiceChannel(guild: Guild, channel: VoiceChannel) {
@@ -25,20 +28,20 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
     fun leaveVoiceChannel(guild: Guild) {
         val manager = guild.audioManager
-        speeches.clear()
+        speechesFor(guild).clear()
         manager.closeAudioConnection()
     }
 
 
     fun endCurrentSpeech(guild: Guild) {
-        val manager = guild.audioManager.sendingHandler
+        val manager = guild.audioManager?.sendingHandler
         if (manager is Speech)
             manager.done = true
     }
 
 
-    fun playNextSpeech() {
-        val speech       = speeches.firstOrNull() ?: return
+    fun playNextSpeech(guild: Guild) {
+        val speech       = speechesFor(guild).firstOrNull() ?: return
         val guild        = speech.message.guild
         val voiceChannel = speech.message.member.voiceState?.channel ?: return
 
@@ -49,9 +52,10 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
     fun speechDone(speech: Speech) {
         println("The speech \"${speech.text}\" has ended")
+        val guild = speech.guild
 
-        speeches.remove(speech)
-        playNextSpeech()
+        speechesFor(guild).remove(speech)
+        playNextSpeech(guild)
     }
 
 
@@ -122,15 +126,17 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
         if (event.author.isBot) return
         if (!event.channel.name.contains("voice-replies")) return // TODO maybe make voice-replies name configurable
 
-        val user    = event.member.user
-        val profile = dataSource.getProfile(user.id)
-        val voice   = dataSource.getVoice(profile.voiceName) ?: dataSource.getVoice("default")
+        val guild     = event.guild
+        val speeches  = speechesFor(guild)
+        val user      = event.member.user
+        val profile   = dataSource.getProfile(user.id)
+        val voice     = dataSource.getVoice(profile.voiceName) ?: dataSource.getVoice("default")
         ?: throw RuntimeException("No default voice")
 
         speeches.add(Speech(mary, event.message, voice, this::speechDone))
 
         if (speeches.size == 1)
-            playNextSpeech()
+            playNextSpeech(guild)
     }
 
 
@@ -147,6 +153,7 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
             leaveVoiceChannel(event.guild)
         }
         else {
+            val speeches = speechesFor(event.guild)
             val current = manager.sendingHandler
             // If the person who left was talking, we want to remove all their speeches
             // from the queue.
@@ -157,7 +164,7 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
             // In case we interrupted the current speech, start playing the next one.
             if (current is Speech && current.done && speeches.size > 0)
-                playNextSpeech()
+                playNextSpeech(event.guild)
         }
     }
 }

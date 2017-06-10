@@ -18,10 +18,12 @@ class Speech(
     var originalInputStream = generateAudio()
     var inputStream = originalInputStream
     var done = false
+    val guild = message.guild
     private var ranCallback = false
     private var nextSegment = ByteArray(SEGMENT_SIZE)
     private val myFormat    get() = inputStream.format
     private val inputFormat get() = AudioSendHandler.INPUT_FORMAT
+
 
     init {
         println("Received message: \"$text\"")
