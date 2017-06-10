@@ -1,10 +1,46 @@
 package net.resonious.talker
 
-import marytts.LocalMaryInterface
-import marytts.config.MaryConfig
-import marytts.util.data.audio.MaryAudioUtils
 import net.dv8tion.jda.core.AccountType
+import net.dv8tion.jda.core.JDA
 import net.dv8tion.jda.core.JDABuilder
+import net.dv8tion.jda.core.entities.TextChannel
+
+const val HELP_MESSAGE: String = """
+===========================================
+Type "#<channel-name> <message>" to send <message> to <channel-name> on all added guilds.
+Type "${'$'}<channel-id> <message>" to send <message> to the channel with <channel-id>
+===========================================
+"""
+
+fun chat(channel: TextChannel, message: String) {
+    channel.sendMessage(message).queue {
+        println("Sent \"${it.content}\" to ${channel.guild.name} #${channel.name}")
+    }
+}
+
+fun announce(jda: JDA, message: String): Boolean {
+    if (message.startsWith("#")) {
+        val channelTag = message.takeWhile { !it.isWhitespace() }
+        val content = message.removePrefix(channelTag).trimStart()
+        val channelName = channelTag.removePrefix("#")
+
+        for (guild in jda.guilds) {
+            val channels = guild.getTextChannelsByName(channelName, true)
+            for (channel in channels)
+                chat(channel, content)
+        }
+        return true
+    }
+    else if (message.startsWith("$")) {
+        val channelIdent = message.takeWhile { !it.isWhitespace() }
+        val content      = message.removePrefix(channelIdent).trimStart()
+        val channelId    = channelIdent.removePrefix("$")
+
+        chat(jda.getTextChannelById(channelId), content)
+        return true
+    }
+    return false
+}
 
 fun main(args: Array<String>) {
     val data = Data("./talker-data/")
@@ -12,35 +48,12 @@ fun main(args: Array<String>) {
     val jda = JDABuilder(AccountType.BOT)
             .setToken(data.getToken())
             .addEventListener(bot)
-            .buildBlocking()
+            .buildAsync()
 
-    return // Keeping the stuff underneath for reference
-
-    // val dataSource = Data("./talker/")
-    // val prof = dataSource.getProfile("123")
-    // println("CHECK IT!!! ${prof.userId}")
-
-    println("Uhhh " + MaryConfig.countConfigs() + " configs exist\n")
-    val mary = LocalMaryInterface()
-
-    var voices = mary.availableVoices
-    voices.forEach { v -> println("Voice: $v") }
-    mary.voice = "cmu-bdl-hsmm"
-
-    val audio = mary.generateAudio("Here's the voice. I hope this works any amount at all. How do I sound?")
-
-    println(
-        "\nSome info:\n"+
-        "Channels: ${audio.format.channels}\n"+
-        "Encoding: ${audio.format.encoding.toString()}\n"+
-        "Big Endian: ${audio.format.isBigEndian}\n"+
-        "Sample rate: ${audio.format.sampleRate}\n"+
-        "Sample bits: ${audio.format.sampleSizeInBits}"
-    )
-
-    val samples = MaryAudioUtils.getSamplesAsDoubleArray(audio)
-    MaryAudioUtils.writeWavFile(samples, "out.wav", audio.format)
-
-
-    println("\nWrote to out.wav")
+    var input = readLine()
+    while (input != null) {
+        if (!announce(jda, input))
+            println(HELP_MESSAGE)
+        input = readLine()
+    }
 }

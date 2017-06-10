@@ -1,7 +1,6 @@
 package net.resonious.talker
 
 import marytts.LocalMaryInterface
-import net.dv8tion.jda.client.managers.EmoteManager
 import net.dv8tion.jda.core.entities.Guild
 import net.dv8tion.jda.core.entities.Message
 import net.dv8tion.jda.core.entities.VoiceChannel
@@ -12,7 +11,7 @@ import net.dv8tion.jda.core.hooks.ListenerAdapter
 
 class TalkerBot(val dataSource: Data) : ListenerAdapter() {
     val speeches = mutableListOf<Speech>()
-    val mary = LocalMaryInterface()
+    val mary     = LocalMaryInterface()
 
 
     fun joinVoiceChannel(guild: Guild, channel: VoiceChannel) {
@@ -109,8 +108,6 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
                             "${user.asMention} Voice set to ${reaction.emote.name} (${voice.name})!"
                     ).queue()
                 }
-
-                reaction.removeReaction(user).queue()
             }
         }
     }
