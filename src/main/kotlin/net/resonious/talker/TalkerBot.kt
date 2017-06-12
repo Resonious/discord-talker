@@ -1,17 +1,28 @@
 package net.resonious.talker
 
 import marytts.LocalMaryInterface
-import net.dv8tion.jda.core.entities.Guild
-import net.dv8tion.jda.core.entities.Message
-import net.dv8tion.jda.core.entities.VoiceChannel
+import net.dv8tion.jda.core.entities.*
 import net.dv8tion.jda.core.events.guild.voice.GuildVoiceLeaveEvent
 import net.dv8tion.jda.core.events.message.guild.GuildMessageReceivedEvent
 import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEvent
 import net.dv8tion.jda.core.hooks.ListenerAdapter
+import java.time.Instant
 
 class TalkerBot(val dataSource: Data) : ListenerAdapter() {
+    val mary = LocalMaryInterface()
+
+    // Guild ID --> Speech queue
     val speechesByGuild = mutableMapOf<Long, MutableList<Speech>>()
-    val mary     = LocalMaryInterface()
+    // Channel ID --> Instant at which the silence wears off
+    val silences = mutableMapOf<Long, Instant>()
+
+
+    init {
+        val voices = mary.availableVoices
+        println("${voices.size} MaryTTS voices available:")
+        voices.forEach { println("  $it") }
+        println("")
+    }
 
 
     fun speechesFor(guild: Guild) = speechesByGuild.getOrPut(guild.idLong, { mutableListOf<Speech>() })
@@ -42,7 +53,6 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
     fun playNextSpeech(guild: Guild) {
         val speech       = speechesFor(guild).firstOrNull() ?: return
-        val guild        = speech.message.guild
         val voiceChannel = speech.message.member.voiceState?.channel ?: return
 
         joinVoiceChannel(guild, voiceChannel)
@@ -56,6 +66,21 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
 
         speechesFor(guild).remove(speech)
         playNextSpeech(guild)
+    }
+
+
+    fun isSilenced(channel: VoiceChannel): Boolean {
+        val silencedBefore = silences[channel.idLong] ?: return false
+        return Instant.now() < silencedBefore
+    }
+
+
+    fun silence(message: Message) {
+        val voiceState = message.member.voiceState ?: return
+        if (voiceState.channel == null) return
+
+        silences.put(voiceState.channel.idLong, Instant.now().plusSeconds(60))
+        message.channel.sendMessage("Silenced for 1 minute").queue()
     }
 
 
@@ -120,11 +145,19 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
     override fun onGuildMessageReceived(event: GuildMessageReceivedEvent?) {
         if (event == null) return
 
-        if (event.message.strippedContent.contains("!voices")) return listVoices(event.message)
+        if (event.message.strippedContent == "!voices")  return listVoices(event.message)
+        if (event.message.strippedContent == "!silence") return silence(event.message)
+        if (event.message.strippedContent == "!leave")   return leaveVoiceChannel(event.guild)
 
         if (event.member.voiceState?.channel == null) return
         if (event.author.isBot) return
         if (!event.channel.name.contains("voice-replies")) return // TODO maybe make voice-replies name configurable
+        if (!event.member.voiceState.isMuted) return
+
+        if (isSilenced(event.member.voiceState.channel)) {
+            event.channel.sendMessage("Sorry, I'm silenced. Join another voice channel or wait a little bit.").queue()
+            return
+        }
 
         val guild     = event.guild
         val speeches  = speechesFor(guild)
