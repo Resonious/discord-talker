@@ -7,7 +7,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.stream.Stream
 
-class Data(val directory: String) {
+class Data(private val directory: String) {
     data class Voice(val name: String, val maryVoice: String, val maryEffects: String, val emoji: String)
     data class Profile(val userId: String, var voiceName: String)
 
@@ -18,9 +18,9 @@ class Data(val directory: String) {
     ) : Exception("Failed to read token from $path", cause)
 
 
-    val mapper = jacksonObjectMapper()
-    val voiceCache   = hashMapOf<String, Voice>()
-    val profileCache = hashMapOf<String, Profile>()
+    private val mapper = jacksonObjectMapper()
+    private val voiceCache   = hashMapOf<String, Voice>()
+    private val profileCache = hashMapOf<String, Profile>()
 
 
     fun getToken(): String {
@@ -56,11 +56,11 @@ class Data(val directory: String) {
         val path = Paths.get(directory, "voice-$name.json")
         val file = path.toFile()
 
-        try {
-            return mapper.readValue(file)
+        return try {
+            mapper.readValue(file)
         }
         catch (notFound: FileNotFoundException) {
-            return null
+            null
         }
     })
 

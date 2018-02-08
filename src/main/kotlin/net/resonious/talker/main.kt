@@ -14,7 +14,7 @@ Type "${'$'}<channel-id> <message>" to send <message> to the channel with <chann
 
 fun chat(channel: TextChannel, message: String) {
     channel.sendMessage(message).queue {
-        println("Sent \"${it.content}\" to ${channel.guild.name} #${channel.name}")
+        println("Sent \"${it.contentDisplay}\" to ${channel.guild.name} #${channel.name}")
     }
 }
 

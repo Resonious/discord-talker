@@ -14,7 +14,7 @@ class Speech(
         val voice:   Data.Voice,
         val onDone: (Speech) -> Unit
 ) : AudioSendHandler {
-    val text: String = message.strippedContent
+    val text: String = message.contentStripped
     var originalInputStream = generateAudio()
     var inputStream = originalInputStream
     var done = false

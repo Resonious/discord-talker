@@ -116,25 +116,25 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
         val reaction = event.reaction
         if (user.isBot) return
 
-        println("Reaction \"${reaction.emote.name}\" added to some message")
+        println("Reaction \"${reaction.reactionEmote.name}\" added to some message")
 
         // When a reaction is added to one of our messages, we set the user's voice according to the emote
         event.channel.getMessageById(event.messageIdLong).queue { message ->
             val theMessageWasMine = message.author.idLong == event.jda.selfUser.idLong
             if (theMessageWasMine) {
                 val profile = dataSource.getProfile(user.id)
-                val voice = dataSource.getVoiceByEmoji(reaction.emote.name)
+                val voice = dataSource.getVoiceByEmoji(reaction.reactionEmote.name)
 
                 if (voice == null)
                     message.channel.sendMessage(
-                            "${user.asMention} Oops, failed to find the voice for ${reaction.emote.name}, sorry"
+                            "${user.asMention} Oops, failed to find the voice for ${reaction.reactionEmote.name}, sorry"
                     ).queue()
 
                 else {
                     profile.voiceName = voice.name
                     dataSource.saveProfile(profile)
                     message.channel.sendMessage(
-                            "${user.asMention} Voice set to ${reaction.emote.name} (${voice.name})!"
+                            "${user.asMention} Voice set to ${reaction.reactionEmote.name} (${voice.name})!"
                     ).queue()
                 }
             }
@@ -145,9 +145,9 @@ class TalkerBot(val dataSource: Data) : ListenerAdapter() {
     override fun onGuildMessageReceived(event: GuildMessageReceivedEvent?) {
         if (event == null) return
 
-        if (event.message.strippedContent == "!voices")  return listVoices(event.message)
-        if (event.message.strippedContent == "!silence") return silence(event.message)
-        if (event.message.strippedContent == "!leave")   return leaveVoiceChannel(event.guild)
+        if (event.message.contentStripped == "!voices")  return listVoices(event.message)
+        if (event.message.contentStripped == "!silence") return silence(event.message)
+        if (event.message.contentStripped == "!leave")   return leaveVoiceChannel(event.guild)
 
         if (event.member.voiceState?.channel == null) return
         if (event.author.isBot) return
